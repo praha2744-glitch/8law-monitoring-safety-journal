@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>안보경 법령 모니터링 시스템</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: rgba(99,179,237,0.15);
+    --accent: #3b82f6;
+    --accent2: #06d6a0;
+    --accent3: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-area { display: flex; align-items: center; gap: 12px; }
+
+  .logo-badge {
+    background: linear-gradient(135deg, var(--accent), #1d4ed8);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .header-title { font-size: 18px; font-weight: 700; color: var(--text); }
+  .header-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 20px;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); }
+  .dot.inactive { background: var(--text-dim); }
+
+  /* API KEY SETUP */
+  .api-setup {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.3);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .api-setup.hidden { display: none; }
+
+  .api-setup-text { flex: 1; }
+  .api-setup-text strong { font-size: 13px; color: #fbbf24; display: block; margin-bottom: 4px; }
+  .api-setup-text span { font-size: 12px; color: var(--text-muted); }
+
+  .api-input-row { display: flex; gap: 8px; margin-top: 10px; }
+
+  .api-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    outline: none;
+  }
+
+  .api-input:focus { border-color: var(--accent); }
+
+  .api-save-btn {
+    background: #f59e0b;
+    color: #000;
+    border: none;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+
+  .api-save-btn:hover { opacity: 0.9; }
+
+  .api-status-ok {
+    background: rgba(6,214,160,0.08);
+    border: 1px solid rgba(6,214,160,0.3);
+    border-radius: var(--radius-lg);
+    padding: 10px 16px;
+    margin-bottom: 24px;
+    font-size: 12px;
+    color: var(--accent2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .api-status-ok.hidden { display: none; }
+
+  .api-reset-btn {
+    background: transparent;
+    border: 1px solid rgba(6,214,160,0.3);
+    color: var(--accent2);
+    font-size: 11px;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .sidebar { display: flex; flex-direction: column; gap: 12px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+
+  .card-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .scope-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+
+  .scope-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.15s;
+    font-size: 13px;
+  }
+
+  .scope-item:hover { background: var(--surface2); }
+
+  .scope-item input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .scope-item .tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .tag-law { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .tag-source { background: rgba(6,214,160,0.15); color: #34d399; }
+
+  .period-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  .period-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 8px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .period-btn:hover, .period-btn.active {
+    background: rgba(59,130,246,0.15);
+    border-color: rgba(59,130,246,0.4);
+    color: #60a5fa;
+  }
+
+  .run-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), #1d4ed8);
+    color: white;
+    border: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 14px;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .run-btn:hover { opacity: 0.9; }
+  .run-btn:active { transform: scale(0.98); }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .run-icon {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    display: none;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .content-area { display: flex; flex-direction: column; gap: 16px; }
+
+  .report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  .report-meta { font-size: 12px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+  .export-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .export-btn:hover { border-color: var(--accent); color: #60a5fa; }
+
+  .empty-state {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-lg);
+    padding: 60px 24px;
+    text-align: center;
+  }
+
+  .empty-icon { font-size: 36px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-title { font-size: 16px; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; }
+  .empty-desc { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    display: none;
+  }
+
+  .progress-title { font-size: 13px; font-weight: 500; margin-bottom: 16px; color: var(--text-muted); }
+  .progress-steps { display: flex; flex-direction: column; gap: 8px; }
+
+  .progress-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    transition: all 0.3s;
+  }
+
+  .progress-step.active { background: rgba(59,130,246,0.08); color: var(--text); border-left: 2px solid var(--accent); }
+  .progress-step.done { color: var(--accent2); }
+  .step-icon { width: 16px; text-align: center; font-size: 12px; flex-shrink: 0; }
+
+  .result-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .result-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .result-section-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; }
+
+  .section-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 400; }
+  .badge-new { background: rgba(239,68,68,0.15); color: #f87171; }
+  .badge-count { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .badge-none { background: rgba(100,116,139,0.15); color: #94a3b8; }
+
+  .collapse-icon { color: var(--text-dim); font-size: 12px; transition: transform 0.2s; }
+
+  .result-section-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+
+  .issue-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    transition: border-color 0.15s;
+  }
+
+  .issue-item:hover { border-color: rgba(99,179,237,0.3); }
+  .issue-item.priority-high { border-left: 3px solid var(--danger); }
+  .issue-item.priority-mid { border-left: 3px solid var(--accent3); }
+  .issue-item.priority-low { border-left: 3px solid var(--accent2); }
+
+  .issue-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .issue-title { font-size: 13px; font-weight: 500; line-height: 1.4; flex: 1; }
+  .issue-tags { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+
+  .itag { font-size: 10px; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+  .itag-개정 { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+  .itag-입법예고 { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+  .itag-행정해석 { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
+  .itag-뉴스 { background: rgba(6,214,160,0.12); color: #34d399; border: 1px solid rgba(6,214,160,0.2); }
+  .itag-시행 { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+
+  .issue-summary { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 8px; }
+
+  .issue-action {
+    font-size: 11px;
+    color: #fbbf24;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.15);
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 6px;
+  }
+
+  .issue-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .issue-date { font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+  .issue-link { font-size: 11px; color: #60a5fa; text-decoration: none; }
+  .issue-link:hover { text-decoration: underline; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-num { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+  .stat-num.red { color: #f87171; }
+  .stat-num.amber { color: #fbbf24; }
+  .stat-num.green { color: #34d399; }
+  .stat-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+  .ai-summary {
+    background: rgba(59,130,246,0.06);
+    border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+  }
+
+  .ai-summary-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #60a5fa;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ai-summary-text { font-size: 13px; color: var(--text); line-height: 1.8; }
+  .ai-summary-text p { margin-bottom: 8px; }
+  .ai-summary-text p:last-child { margin-bottom: 0; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 768px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .stat-row { grid-template-columns: 1fr 1fr; }
+    .api-input-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo-area">
+    <div class="logo-badge">안보경 SHE</div>
+    <div>
+      <div class="header-title">법령 모니터링 시스템</div>
+      <div class="header-sub">이노션 안전보건경영팀 · 중대재해처벌법 대응</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="dot inactive" id="statusDot"></div>
+    <span id="statusText">대기 중</span>
+  </div>
+</div>
+
+<!-- API 키 미설정 안내 -->
+<div class="api-setup" id="apiSetup">
+  <div style="font-size:24px;">🔑</div>
+  <div class="api-setup-text">
+    <strong>Gemini API 키를 입력해주세요</strong>
+    <span>최초 1회만 입력하면 브라우저에 저장됩니다. aistudio.google.com에서 발급 가능합니다.</span>
+    <div class="api-input-row">
+      <input class="api-input" type="password" id="apiKeyInput" placeholder="AIzaSy...">
+      <button class="api-save-btn" onclick="saveApiKey()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- API 키 설정 완료 -->
+<div class="api-status-ok hidden" id="apiStatusOk">
+  <span>✅ Gemini API 키 설정됨 — 브라우저에 저장되어 있습니다</span>
+  <button class="api-reset-btn" onclick="resetApiKey()">키 변경</button>
+</div>
+
+<div class="main-grid">
+  <div class="sidebar">
+
+    <div class="card">
+      <div class="card-label">모니터링 법령</div>
+      <ul class="scope-list" id="lawList">
+        <li class="scope-item"><input type="checkbox" checked data-val="산업안전보건법"><span>산업안전보건법</span><span class="tag tag-law">산보법</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="중대재해처벌법"><span>중대재해처벌법</span><span class="tag tag-law">중처법</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="화재예방법"><span>화재예방법</span><span class="tag tag-law">화재</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="소방시설법"><span>소방시설법</span><span class="tag tag-law">소방</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="건설산업기본법"><span>건설산업기본법</span><span class="tag tag-law">건산</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="건설기본법"><span>건설기본법</span><span class="tag tag-law">건기</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="감염병 예방법"><span>감염병예방법</span><span class="tag tag-law">감염</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="공연법"><span>공연법</span><span class="tag tag-law">공연</span></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-label">정보 소스</div>
+      <ul class="scope-list">
+        <li class="scope-item"><input type="checkbox" checked data-val="고용노동부"><span>고용노동부</span><span class="tag tag-source">관보</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="법제처"><span>법제처</span><span class="tag tag-source">관보</span></li>
+        <li class="scope-item"><input type="checkbox" checked data-val="안전저널"><span>안전저널</span><span class="tag tag-source">뉴스</span></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-label">검색 기간</div>
+      <div class="period-btns">
+        <button class="period-btn" data-p="1주">최근 1주</button>
+        <button class="period-btn active" data-p="1개월">최근 1개월</button>
+        <button class="period-btn" data-p="3개월">최근 3개월</button>
+        <button class="period-btn" data-p="6개월">최근 6개월</button>
+      </div>
+    </div>
+
+    <button class="run-btn" id="runBtn" onclick="runMonitoring()">
+      <div class="run-icon" id="spinner"></div>
+      <span id="runBtnText">🔍 모니터링 실행</span>
+    </button>
+
+    <div style="text-align:center; font-size: 11px; color: var(--text-dim);" id="lastRun"></div>
+  </div>
+
+  <div class="content-area" id="contentArea">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">모니터링 결과가 여기에 표시됩니다</div>
+      <div class="empty-desc">
+        모니터링할 법령과 소스를 선택한 후<br>
+        「모니터링 실행」 버튼을 클릭하세요.<br><br>
+        <span style="color: var(--text-dim); font-size: 12px;">Gemini AI가 실시간으로 웹을 탐색하여 최신 변경사항을 분석합니다</span>
+      </div>
+    </div>
+    <div class="progress-card" id="progressCard">
+      <div class="progress-title">검색 진행 중...</div>
+      <div class="progress-steps" id="progressSteps"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── API 키 관리 ──────────────────────────────────────
+const STORAGE_KEY = 'gemini_api_key_anbokyung';
+
+function loadApiKey() {
+  return localStorage.getItem(STORAGE_KEY) || '';
+}
+
+function saveApiKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val.startsWith('AIza')) {
+    alert('올바른 Gemini API 키를 입력해주세요. (AIza...로 시작)');
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY, val);
+  showApiStatus(true);
+}
+
+function resetApiKey() {
+  localStorage.removeItem(STORAGE_KEY);
+  showApiStatus(false);
+}
+
+function showApiStatus(hasKey) {
+  document.getElementById('apiSetup').classList.toggle('hidden', hasKey);
+  document.getElementById('apiStatusOk').classList.toggle('hidden', !hasKey);
+}
+
+// 초기 로드 시 키 확인
+window.addEventListener('DOMContentLoaded', () => {
+  const key = loadApiKey();
+  showApiStatus(!!key);
+});
+
+// ── 기간 선택 ──────────────────────────────────────
+let selectedPeriod = '1개월';
+
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    selectedPeriod = this.dataset.p;
+  });
+});
+
+function getChecked(selector) {
+  return Array.from(document.querySelectorAll(selector + ':checked'))
+    .map(el => el.dataset.val);
+}
+
+function setProgress(steps, activeIdx) {
+  const container = document.getElementById('progressSteps');
+  container.innerHTML = steps.map((s, i) => {
+    let cls = 'progress-step';
+    let icon = '○';
+    if (i < activeIdx) { cls += ' done'; icon = '✓'; }
+    else if (i === activeIdx) { cls += ' active'; icon = '▶'; }
+    return `<div class="${cls}"><span class="step-icon">${icon}</span>${s}</div>`;
+  }).join('');
+}
+
+// ── 메인 실행 ──────────────────────────────────────
+async function runMonitoring() {
+  const apiKey = loadApiKey();
+  if (!apiKey) {
+    alert('먼저 Gemini API 키를 입력해주세요.');
+    return;
+  }
+
+  const laws = getChecked('#lawList input[type="checkbox"]');
+  const sources = getChecked('.scope-list:not(#lawList) input[type="checkbox"]');
+  if (laws.length === 0) { alert('모니터링할 법령을 1개 이상 선택해주세요.'); return; }
+
+  const btn = document.getElementById('runBtn');
+  const spinner = document.getElementById('spinner');
+  const btnText = document.getElementById('runBtnText');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = '검색 중...';
+
+  const dot = document.getElementById('statusDot');
+  dot.classList.remove('inactive');
+  document.getElementById('statusText').textContent = '실행 중';
+  document.getElementById('emptyState').style.display = 'none';
+
+  const progressCard = document.getElementById('progressCard');
+  progressCard.style.display = 'block';
+
+  document.querySelectorAll('.result-section, .report-header, #summaryStats, #aiSummaryBox').forEach(el => el.remove());
+
+  const steps = [
+    '고용노동부 정책자료실 탐색 중...',
+    '법제처 최근 개정 확인 중...',
+    '안전저널 최신 뉴스 수집 중...',
+    'AI 분석 및 요약 생성 중...',
+    '리포트 구성 중...'
+  ];
+
+  for (let i = 0; i < steps.length - 1; i++) {
+    setProgress(steps, i);
+    await new Promise(r => setTimeout(r, 700));
+  }
+  setProgress(steps, steps.length - 1);
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일`;
+
+  const prompt = `당신은 이노션(종합광고대행사) 안전보건경영팀의 법령 모니터링 전문가입니다.
+오늘 날짜: ${todayStr}
+검색 기간: 최근 ${selectedPeriod}
+모니터링 대상 법령: ${laws.join(', ')}
+정보 소스: ${sources.join(', ')} (고용노동부: moel.go.kr, 법제처: law.go.kr, 안전저널: anjunj.com)
+
+다음을 수행하세요:
+1. 위 법령들의 최근 ${selectedPeriod} 내 주요 변경사항(개정, 입법예고, 시행, 행정해석 등)을 Google 검색을 통해 실제로 조사하세요.
+2. 이노션 업종 특성(광고대행사, 사무직+현장 혼재, 협력업체·프리랜서 다수)을 고려하여 실무 관련성이 높은 이슈를 선별하세요.
+3. 반드시 아래 JSON 형식으로만 응답하세요. JSON 외 텍스트는 절대 포함하지 마세요.
+
+{
+  "summary": "전체 동향 요약 2-3문장 (이노션 관점)",
+  "keyPoints": ["핵심 포인트 1", "핵심 포인트 2", "핵심 포인트 3"],
+  "totalIssues": 숫자,
+  "highPriority": 숫자,
+  "sections": [
+    {
+      "title": "섹션명",
+      "sourceType": "법령변경 | 입법예고 | 행정해석 | 뉴스",
+      "items": [
+        {
+          "title": "이슈 제목",
+          "type": "개정 | 입법예고 | 행정해석 | 뉴스 | 시행",
+          "priority": "high | mid | low",
+          "summary": "2-3문장 요약",
+          "actionNeeded": "이노션이 해야 할 실무 조치 (없으면 null)",
+          "date": "YYYY-MM-DD 또는 연도.월 형식",
+          "law": "관련 법령명",
+          "url": "관련 URL (있으면)"
+        }
+      ]
+    }
+  ]
+}`;
+
+  try {
+    // Gemini API 호출 (Google Search Grounding 포함)
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: {
+            temperature: 1.0,
+            maxOutputTokens: 4000
+          }
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    // 응답 텍스트 추출
+    const fullText = data?.candidates?.[0]?.content?.parts
+      ?.map(p => p.text || '')
+      .join('') || '';
+
+    const clean = fullText.replace(/```json|```/g, '').trim();
+
+    let parsed;
+    try {
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+    } catch(e) {
+      parsed = generateFallback(laws, selectedPeriod);
+    }
+
+    progressCard.style.display = 'none';
+    renderReport(parsed, todayStr, laws, selectedPeriod);
+
+  } catch(err) {
+    console.error(err);
+    progressCard.style.display = 'none';
+    const fb = generateFallback(laws, selectedPeriod);
+    renderReport(fb, todayStr, laws, selectedPeriod);
+  }
+
+  btn.disabled = false;
+  spinner.style.display = 'none';
+  btnText.textContent = '🔍 모니터링 실행';
+  dot.classList.add('inactive');
+  document.getElementById('statusText').textContent = '대기 중';
+  document.getElementById('lastRun').textContent = `마지막 실행: ${todayStr}`;
+}
+
+function generateFallback(laws, period) {
+  return {
+    summary: `${laws.join(', ')} 등 ${laws.length}개 법령에 대한 최근 ${period} 모니터링 결과입니다. API 키 확인 또는 네트워크 상태를 점검해주세요.`,
+    keyPoints: ['API 키가 올바른지 확인해주세요', '인터넷 연결 상태를 확인해주세요', '문제 지속 시 키를 재발급해주세요'],
+    totalIssues: 0,
+    highPriority: 0,
+    sections: [{ title: '검색 결과 없음', sourceType: '시스템', items: [] }]
+  };
+}
+
+function renderReport(data, dateStr, laws, period) {
+  const content = document.getElementById('contentArea');
+
+  const hdr = document.createElement('div');
+  hdr.id = 'reportHeaderEl';
+  hdr.className = 'report-header';
+  hdr.innerHTML = `
+    <div>
+      <div style="font-size:15px; font-weight:500; margin-bottom:4px;">법령 모니터링 리포트</div>
+      <div class="report-meta">${dateStr} 기준 · 최근 ${period} · ${laws.length}개 법령 · Powered by Gemini</div>
+    </div>
+    <button class="export-btn" onclick="exportReport()">📄 내보내기</button>
+  `;
+  content.appendChild(hdr);
+
+  const statsDiv = document.createElement('div');
+  statsDiv.id = 'summaryStats';
+  const highCnt = data.highPriority || 0;
+  const totalCnt = data.totalIssues || (data.sections||[]).reduce((a,s) => a+(s.items||[]).length, 0);
+  const midCnt = (data.sections||[]).reduce((a,s) => a+(s.items||[]).filter(i=>i.priority==='mid').length, 0);
+  const lowCnt = (data.sections||[]).reduce((a,s) => a+(s.items||[]).filter(i=>i.priority==='low').length, 0);
+  statsDiv.innerHTML = `
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num">${totalCnt}</div><div class="stat-label">전체 이슈</div></div>
+      <div class="stat-box"><div class="stat-num red">${highCnt}</div><div class="stat-label">긴급 대응</div></div>
+      <div class="stat-box"><div class="stat-num amber">${midCnt}</div><div class="stat-label">검토 필요</div></div>
+      <div class="stat-box"><div class="stat-num green">${lowCnt}</div><div class="stat-label">참고 사항</div></div>
+    </div>
+  `;
+  content.appendChild(statsDiv);
+
+  if (data.summary) {
+    const aiBox = document.createElement('div');
+    aiBox.id = 'aiSummaryBox';
+    aiBox.className = 'ai-summary';
+    const kpHtml = (data.keyPoints||[]).map(kp => `<p>• ${kp}</p>`).join('');
+    aiBox.innerHTML = `
+      <div class="ai-summary-label"><span style="font-size:14px;">✦</span> AI 종합 분석 (이노션 관점)</div>
+      <div class="ai-summary-text"><p>${data.summary}</p>${kpHtml}</div>
+    `;
+    content.appendChild(aiBox);
+  }
+
+  (data.sections||[]).forEach(section => {
+    const items = section.items || [];
+    const hasNew = items.some(i => i.priority === 'high');
+    const sec = document.createElement('div');
+    sec.className = 'result-section';
+
+    const badge = items.length === 0
+      ? `<span class="section-badge badge-none">변경없음</span>`
+      : hasNew
+        ? `<span class="section-badge badge-new">신규 ${items.length}건</span>`
+        : `<span class="section-badge badge-count">${items.length}건</span>`;
+
+    const typeColors = { '법령변경':'#60a5fa','입법예고':'#fbbf24','행정해석':'#a78bfa','뉴스':'#34d399','시스템':'#94a3b8' };
+    const typeColor = typeColors[section.sourceType] || '#94a3b8';
+
+    sec.innerHTML = `
+      <div class="result-section-header" onclick="toggleSection(this)">
+        <div class="result-section-title">
+          <span style="width:8px;height:8px;border-radius:50%;background:${typeColor};display:inline-block;flex-shrink:0;"></span>
+          <span>${section.title}</span>
+          <span style="font-size:11px;color:var(--text-dim);">${section.sourceType}</span>
+          ${badge}
+        </div>
+        <span class="collapse-icon">▾</span>
+      </div>
+      <div class="result-section-body">
+        ${items.length === 0
+          ? '<div style="font-size:13px;color:var(--text-dim);padding:8px 0;">해당 기간 내 변경사항이 없습니다.</div>'
+          : items.map(item => renderIssueItem(item)).join('')}
+      </div>
+    `;
+    content.appendChild(sec);
+  });
+}
+
+function renderIssueItem(item) {
+  const priorityClass = item.priority === 'high' ? 'priority-high' : item.priority === 'mid' ? 'priority-mid' : 'priority-low';
+  const actionHtml = item.actionNeeded ? `<div class="issue-action">⚡ ${item.actionNeeded}</div>` : '';
+  const linkHtml = item.url ? `<a class="issue-link" href="${item.url}" target="_blank">원문 보기 →</a>` : '';
+  return `
+    <div class="issue-item ${priorityClass}">
+      <div class="issue-top">
+        <div class="issue-title">${item.title}</div>
+        <div class="issue-tags">
+          <span class="itag itag-${item.type||'뉴스'}">${item.type||'뉴스'}</span>
+          ${item.law ? `<span class="itag" style="background:rgba(100,116,139,0.1);color:var(--text-muted);border:1px solid var(--border);">${item.law}</span>` : ''}
+        </div>
+      </div>
+      <div class="issue-summary">${item.summary}</div>
+      ${actionHtml}
+      <div class="issue-footer">
+        <span class="issue-date">${item.date||''}</span>
+        ${linkHtml}
+      </div>
+    </div>
+  `;
+}
+
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const icon = header.querySelector('.collapse-icon');
+  if (body.style.display === 'none') {
+    body.style.display = 'flex';
+    icon.style.transform = 'rotate(0deg)';
+  } else {
+    body.style.display = 'none';
+    icon.style.transform = 'rotate(-90deg)';
+  }
+}
+
+function exportReport() {
+  const date = new Date().toISOString().slice(0,10);
+  const sections = document.querySelectorAll('.result-section');
+  let text = `이노션 안전보건경영팀 법령 모니터링 리포트\n생성일: ${date}\n${'='.repeat(50)}\n\n`;
+  sections.forEach(sec => {
+    const title = sec.querySelector('.result-section-title span:nth-child(2)')?.textContent || '';
+    text += `\n[${title}]\n${'-'.repeat(30)}\n`;
+    sec.querySelectorAll('.issue-item').forEach(item => {
+      const t = item.querySelector('.issue-title')?.textContent || '';
+      const s = item.querySelector('.issue-summary')?.textContent || '';
+      const d = item.querySelector('.issue-date')?.textContent || '';
+      text += `• ${t}\n  ${s}\n  (${d})\n\n`;
+    });
+  });
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `안보경_법령모니터링_${date}.txt`;
+  a.click();
+}
+</script>
+</body>
+</html>
