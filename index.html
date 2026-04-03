@@ -436,6 +436,52 @@
   .ai-summary-text p { margin-bottom: 8px; }
   .ai-summary-text p:last-child { margin-bottom: 0; }
 
+  /* 출처 뱃지 */
+  .source-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .source-verified {
+    background: rgba(6,214,160,0.1);
+    color: #34d399;
+    border: 1px solid rgba(6,214,160,0.25);
+  }
+  .source-unverified {
+    background: rgba(239,68,68,0.1);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.25);
+  }
+
+  /* 날짜 유형 라벨 */
+  .date-type-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-right: 4px;
+  }
+
+  /* 범례 */
+  .legend-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .legend-label { font-size: 11px; color: var(--text-dim); margin-right: 4px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .legend-divider { width: 1px; height: 14px; background: var(--border); }
+
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -663,7 +709,20 @@ async function runMonitoring() {
    - site:moel.go.kr (고용노동부) → 보도자료, 고시, 입법예고
    - site:law.go.kr (법제처) → 최근 개정법령, 입법예고
    - site:anjunj.com (안전저널) → 산업안전 최신 뉴스
-3. 이노션 업종 특성(광고대행사, 사무직+현장 혼재, 협력업체·프리랜서 다수)을 고려하여 실무 관련성이 높은 이슈를 선별하세요.
+3. 아래 이노션의 업종 특성을 반드시 반영하여 실무 관련성을 판단하세요:
+
+[이노션 업종 특성]
+- 종합광고대행사 (광고 제작·기획이 주업)
+- 사무직 근로자 중심이나, 광고 촬영 현장·전시·이벤트 설치 등 외부 현장 작업 병행
+- 현장 작업은 직접 수행이 아닌 협력업체(수급인)에 위탁하는 구조
+- 협력업체, 프리랜서, 촬영 스태프 등 비소속 근로자 다수 활용
+- 공연·이벤트 관련 업무: 티켓 판매자가 아님. 현대차 등 대기업 클라이언트 의뢰로 공연·행사를 기획하고, 공연장·축구장·야구장 등에 무대를 설치하여 운영하는 역할 (공연 주최자/기획자 포지션)
+- 옥외광고물 설치, 인테리어 공사, 전시 부스 설치 등 건설·설치 작업 수반
+
+[실무 관련성 판단 기준]
+- 높음: 안전보건 의무, 협력업체 관리, 현장 안전, 위험성평가, 중대재해처벌법 적용
+- 낮음(keyPoints 제외): 티켓 판매·암표·좌석 관리 등 공연 興行 관련 사항 (모니터링은 하되 핵심 요약에서는 제외)
+- 낮음(keyPoints 제외): 이노션과 무관한 제조업·건설업·화학업 특화 규정
 4. 반드시 아래 JSON 형식으로만 응답하세요. [cite:숫자] 태그를 포함한 JSON 외 텍스트는 절대 포함하지 마세요.
 
 {
@@ -677,14 +736,16 @@ async function runMonitoring() {
       "sourceType": "법령변경 | 입법예고 | 행정해석 | 뉴스",
       "items": [
         {
-          "title": "이슈 제목",
+          "title": "이슈 제목 (출처 불명확 시 앞에 [미확인] 표시)",
           "type": "개정 | 입법예고 | 행정해석 | 뉴스 | 시행",
-          "priority": "high | mid | low",
+          "priority": "high | mid | low (출처 불명확 시 반드시 low)",
           "summary": "2-3문장 요약",
           "actionNeeded": "이노션이 해야 할 실무 조치 (없으면 null)",
           "date": "YYYY-MM-DD 또는 연도.월 형식",
+          "dateType": "보도일 | 시행일 | 입법예고일 | 개정일 | 행정예고일 | 판결일",
           "law": "관련 법령명",
-          "url": "관련 URL (있으면)"
+          "url": "원문 URL (반드시 실제 원문 URL, 없으면 null)",
+          "sourceName": "출처 사이트명 (예: 고용노동부, 법제처, 안전저널, 조선일보 등. 불명확하면 출처미확인)"
         }
       ]
     }
@@ -799,6 +860,21 @@ function renderReport(data, dateStr, laws, period) {
   `;
   content.appendChild(hdr);
 
+  // 범례
+  const legendDiv = document.createElement('div');
+  legendDiv.className = 'legend-bar';
+  legendDiv.innerHTML = `
+    <span class="legend-label">우선순위:</span>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>긴급 대응</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div>검토 필요</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#06d6a0;"></div>참고 사항</div>
+    <div class="legend-divider"></div>
+    <span class="legend-label">출처:</span>
+    <div class="legend-item"><span class="source-badge source-verified">📎 출처명</span> 확인된 출처</div>
+    <div class="legend-item"><span class="source-badge source-unverified">🔴 출처미확인</span> 교차검증 필요</div>
+  `;
+  content.appendChild(legendDiv);
+
   const statsDiv = document.createElement('div');
   statsDiv.id = 'summaryStats';
   const highCnt = data.highPriority || 0;
@@ -866,6 +942,17 @@ function renderIssueItem(item) {
   const priorityClass = item.priority === 'high' ? 'priority-high' : item.priority === 'mid' ? 'priority-mid' : 'priority-low';
   const actionHtml = item.actionNeeded ? `<div class="issue-action">⚡ ${item.actionNeeded}</div>` : '';
   const linkHtml = item.url ? `<a class="issue-link" href="${item.url}" target="_blank">원문 보기 →</a>` : '';
+
+  // 출처 뱃지
+  const isUnverified = !item.sourceName || item.sourceName === '출처미확인';
+  const sourceBadge = isUnverified
+    ? `<span class="source-badge source-unverified">🔴 출처미확인</span>`
+    : `<span class="source-badge source-verified">📎 ${item.sourceName}</span>`;
+
+  // 날짜 + 날짜 의미
+  const dateLabel = item.dateType ? `<span class="date-type-label">${item.dateType}</span>` : '';
+  const dateHtml = item.date ? `${dateLabel}<span class="issue-date">${item.date}</span>` : '';
+
   return `
     <div class="issue-item ${priorityClass}">
       <div class="issue-top">
@@ -878,7 +965,7 @@ function renderIssueItem(item) {
       <div class="issue-summary">${item.summary}</div>
       ${actionHtml}
       <div class="issue-footer">
-        <span class="issue-date">${item.date||''}</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${dateHtml}${sourceBadge}</div>
         ${linkHtml}
       </div>
     </div>
