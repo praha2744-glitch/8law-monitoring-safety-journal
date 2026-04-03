@@ -699,7 +699,7 @@ async function runMonitoring() {
           tools: [{ google_search: {} }],
           generationConfig: {
             temperature: 1.0,
-            maxOutputTokens: 8000
+            maxOutputTokens: 16000
           }
         })
       }
@@ -711,14 +711,41 @@ async function runMonitoring() {
     const parts = data?.candidates?.[0]?.content?.parts || [];
     const fullText = parts.find(p => p.text)?.text || '';
 
-    const clean = fullText.replace(/```json|```/g, '').trim();
+    // cite 태그 및 코드블록 제거
+    const clean = fullText
+      .replace(/```json|```/g, '')
+      .replace(/\[cite:[^\]]*\]/g, '')
+      .trim();
 
     let parsed;
     try {
       const jsonMatch = clean.match(/\{[\s\S]*\}/);
-      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+      if (!jsonMatch) throw new Error('JSON not found');
+      // 잘린 JSON 복구 시도
+      let jsonStr = jsonMatch[0];
+      // 열린 배열/객체 닫기
+      const opens = (jsonStr.match(/\[|\{/g) || []).length;
+      const closes = (jsonStr.match(/\]|\}/g) || []).length;
+      if (opens > closes) {
+        const diff = opens - closes;
+        for (let i = 0; i < diff; i++) jsonStr += '}';
+        jsonStr += ']}}';
+      }
+      parsed = JSON.parse(jsonStr);
     } catch(e) {
-      parsed = generateFallback(laws, selectedPeriod);
+      // 파싱 실패시 summary/keyPoints만이라도 추출
+      try {
+        const summaryMatch = clean.match(/"summary"\s*:\s*"([^"]+)"/);
+        const summary = summaryMatch ? summaryMatch[1] : '모니터링이 완료되었습니다.';
+        parsed = {
+          summary,
+          keyPoints: ['결과를 불러오는 중 일부 오류가 발생했습니다. 다시 실행해주세요.'],
+          totalIssues: 0, highPriority: 0,
+          sections: [{ title: '파싱 오류', sourceType: '시스템', items: [] }]
+        };
+      } catch(e2) {
+        parsed = generateFallback(laws, selectedPeriod);
+      }
     }
 
     progressCard.style.display = 'none';
