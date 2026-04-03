@@ -658,9 +658,13 @@ async function runMonitoring() {
 정보 소스: ${sources.join(', ')} (고용노동부: moel.go.kr, 법제처: law.go.kr, 안전저널: anjunj.com)
 
 다음을 수행하세요:
-1. 위 법령들의 최근 ${selectedPeriod} 내 주요 변경사항(개정, 입법예고, 시행, 행정해석 등)을 Google 검색을 통해 실제로 조사하세요.
-2. 이노션 업종 특성(광고대행사, 사무직+현장 혼재, 협력업체·프리랜서 다수)을 고려하여 실무 관련성이 높은 이슈를 선별하세요.
-3. 반드시 아래 JSON 형식으로만 응답하세요. JSON 외 텍스트는 절대 포함하지 마세요.
+1. 위 법령들의 최근 ${selectedPeriod} 내 주요 변경사항(개정, 입법예고, 시행, 행정해석 등)을 Google 검색으로 조사하세요.
+2. 반드시 아래 사이트를 site: 연산자로 각각 직접 검색하여 결과를 포함하세요:
+   - site:moel.go.kr (고용노동부) → 보도자료, 고시, 입법예고
+   - site:law.go.kr (법제처) → 최근 개정법령, 입법예고
+   - site:anjunj.com (안전저널) → 산업안전 최신 뉴스
+3. 이노션 업종 특성(광고대행사, 사무직+현장 혼재, 협력업체·프리랜서 다수)을 고려하여 실무 관련성이 높은 이슈를 선별하세요.
+4. 반드시 아래 JSON 형식으로만 응답하세요. [cite:숫자] 태그를 포함한 JSON 외 텍스트는 절대 포함하지 마세요.
 
 {
   "summary": "전체 동향 요약 2-3문장 (이노션 관점)",
@@ -787,7 +791,11 @@ function renderReport(data, dateStr, laws, period) {
       <div style="font-size:15px; font-weight:500; margin-bottom:4px;">법령 모니터링 리포트</div>
       <div class="report-meta">${dateStr} 기준 · 최근 ${period} · ${laws.length}개 법령 · Powered by Gemini</div>
     </div>
-    <button class="export-btn" onclick="exportReport()">📄 내보내기</button>
+    <div style="display:flex;gap:6px;">
+      <button class="export-btn" onclick="exportTxt()">📄 TXT</button>
+      <button class="export-btn" onclick="exportExcel()">📊 Excel</button>
+      <button class="export-btn" onclick="exportPDF()">🖨️ PDF</button>
+    </div>
   `;
   content.appendChild(hdr);
 
@@ -889,7 +897,8 @@ function toggleSection(header) {
   }
 }
 
-function exportReport() {
+// ── TXT 내보내기 ──────────────────────────────────────
+function exportTxt() {
   const date = new Date().toISOString().slice(0,10);
   const sections = document.querySelectorAll('.result-section');
   let text = `이노션 안전보건경영팀 법령 모니터링 리포트\n생성일: ${date}\n${'='.repeat(50)}\n\n`;
@@ -900,7 +909,8 @@ function exportReport() {
       const t = item.querySelector('.issue-title')?.textContent || '';
       const s = item.querySelector('.issue-summary')?.textContent || '';
       const d = item.querySelector('.issue-date')?.textContent || '';
-      text += `• ${t}\n  ${s}\n  (${d})\n\n`;
+      const a = item.querySelector('.issue-action')?.textContent || '';
+      text += `• ${t}\n  ${s}\n  ${a ? '조치: '+a+'\n  ' : ''}(${d})\n\n`;
     });
   });
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
@@ -908,6 +918,87 @@ function exportReport() {
   a.href = URL.createObjectURL(blob);
   a.download = `안보경_법령모니터링_${date}.txt`;
   a.click();
+}
+
+// ── Excel 내보내기 ──────────────────────────────────────
+function exportExcel() {
+  const date = new Date().toISOString().slice(0,10);
+  const rows = [
+    ['법령분야', '이슈제목', '유형', '우선순위', '요약', '필요조치', '날짜', '관련법령']
+  ];
+  document.querySelectorAll('.result-section').forEach(sec => {
+    const title = sec.querySelector('.result-section-title span:nth-child(2)')?.textContent || '';
+    sec.querySelectorAll('.issue-item').forEach(item => {
+      const t = item.querySelector('.issue-title')?.textContent || '';
+      const s = item.querySelector('.issue-summary')?.textContent || '';
+      const d = item.querySelector('.issue-date')?.textContent || '';
+      const action = item.querySelector('.issue-action')?.textContent?.replace('⚡ ','') || '';
+      const tags = [...item.querySelectorAll('.itag')].map(el => el.textContent).join(', ');
+      const priority = item.classList.contains('priority-high') ? '긴급'
+        : item.classList.contains('priority-mid') ? '검토필요' : '참고';
+      rows.push([title, t, tags, priority, s, action, d, '']);
+    });
+  });
+
+  // CSV로 변환 (Excel에서 열림)
+  const BOM = '\uFEFF';
+  const csv = BOM + rows.map(r =>
+    r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `안보경_법령모니터링_${date}.csv`;
+  a.click();
+}
+
+// ── PDF 내보내기 (브라우저 인쇄 기능 활용) ──────────────────────────────────────
+function exportPDF() {
+  // 인쇄용 스타일 동적 추가
+  const style = document.createElement('style');
+  style.id = 'print-style';
+  style.textContent = `
+    @media print {
+      body { background: white !important; color: black !important; padding: 20px !important; }
+      .api-setup, .api-status-ok, .sidebar, .run-btn, .export-btn,
+      #lastRun, .collapse-icon, .issue-link { display: none !important; }
+      .main-grid { grid-template-columns: 1fr !important; }
+      .header { border-bottom: 2px solid #333 !important; margin-bottom: 20px !important; }
+      .logo-badge { background: #1d4ed8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .header-title, .header-sub { color: black !important; }
+      .report-header { background: #f5f5f5 !important; border: 1px solid #ccc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .report-meta { color: #555 !important; }
+      .stat-box { background: #f0f0f0 !important; border: 1px solid #ccc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .stat-num { color: black !important; }
+      .stat-num.red { color: #dc2626 !important; }
+      .stat-num.amber { color: #d97706 !important; }
+      .stat-num.green { color: #059669 !important; }
+      .ai-summary { background: #eff6ff !important; border: 1px solid #bfdbfe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .ai-summary-label { color: #1d4ed8 !important; }
+      .ai-summary-text { color: black !important; }
+      .result-section { border: 1px solid #ccc !important; margin-bottom: 12px !important; }
+      .result-section-header { background: #f5f5f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .result-section-title { color: black !important; }
+      .result-section-body { display: flex !important; }
+      .issue-item { border: 1px solid #ddd !important; margin-bottom: 8px !important; }
+      .issue-item.priority-high { border-left: 3px solid #dc2626 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .issue-item.priority-mid { border-left: 3px solid #d97706 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .issue-item.priority-low { border-left: 3px solid #059669 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .issue-title { color: black !important; }
+      .issue-summary { color: #444 !important; }
+      .issue-action { background: #fefce8 !important; color: #92400e !important; border: 1px solid #fde68a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .issue-date { color: #666 !important; }
+      .itag { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .section-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  `;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(() => {
+    const el = document.getElementById('print-style');
+    if (el) el.remove();
+  }, 1000);
 }
 </script>
 </body>
