@@ -564,6 +564,17 @@
       </div>
     </div>
 
+    <!-- 모델 선택 -->
+    <div class="card" style="padding:12px 16px;">
+      <div class="card-label">AI 모델</div>
+      <select id="modelSelect" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;padding:7px 10px;border-radius:var(--radius);font-family:inherit;cursor:pointer;outline:none;">
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash (기본)</option>
+        <option value="gemini-2.5-flash-lite-preview-06-17">Gemini 2.5 Flash Lite (빠름)</option>
+        <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (대안)</option>
+      </select>
+      <div style="font-size:10px;color:var(--text-dim);margin-top:6px;">503 오류 시 다른 모델로 변경</div>
+    </div>
+
     <button class="run-btn" id="runBtn" onclick="runMonitoring()">
       <div class="run-icon" id="spinner"></div>
       <span id="runBtnText">🔍 모니터링 실행</span>
@@ -590,6 +601,12 @@
 </div>
 
 <script>
+// ── 모델 선택 ──────────────────────────────────────
+function getSelectedModel() {
+  const sel = document.getElementById('modelSelect');
+  return sel ? sel.value : 'gemini-2.5-flash';
+}
+
 // ── API 키 관리 ──────────────────────────────────────
 const STORAGE_KEY = 'gemini_api_key_anbokyung';
 
@@ -755,7 +772,7 @@ async function runMonitoring() {
   try {
     // Gemini API 호출 (Google Search Grounding 포함)
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${getSelectedModel()}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
